@@ -7,237 +7,210 @@ import recomendador as rec
 
 st.set_page_config(page_title="RecomendaSom", page_icon="favicon.png", layout="wide")
 
-css_customizado = """
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap');
+FONTES_URL = ("https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900"
+              "&family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap")
 
-    .stApp {
-        background: radial-gradient(circle at 50% 0%, #1c1c26 0%, #050508 100%);
-        color: #e0e0e0;
-    }
-    
-    h1 {
-        font-family: 'Montserrat', sans-serif !important;
-        font-size: 3.2rem !important;
-        background: linear-gradient(180deg, #ffffff 20%, #8a8a9d 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-shadow: 0px 4px 20px rgba(255, 255, 255, 0.15);
-        padding-bottom: 0.3rem;
-    }
+# CSS compartilhado: usado na página E dentro dos iframes dos players (garante fontes idênticas).
+CSS_BASE = """
+:root {
+    --verde: #1ed760; --ciano: #22d3ee; --roxo: #8b5cf6;
+    --fundo: #05060d; --painel: rgba(14, 18, 32, 0.92);
+    --borda: rgba(130, 150, 210, 0.20); --texto: #e6eaf5; --texto-suave: #8f9bb8;
+    --f-titulo: 'Orbitron', 'Segoe UI', sans-serif;
+    --f-corpo: 'Space Grotesk', 'Segoe UI', sans-serif;
+    --f-mono: 'JetBrains Mono', 'Consolas', monospace;
+}
 
-    h2, h3 {
-        font-family: 'Montserrat', sans-serif !important;
-        background: linear-gradient(180deg, #ffffff 30%, #9a9aac 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-    
-    div[data-testid="stTextInput"] div {
-        border-radius: 50px !important;
-        background-color: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-    }
+/* ---------- Cartões ---------- */
+.cartao-musica {
+    position: relative; overflow: hidden;
+    background: linear-gradient(160deg, rgba(24, 30, 52, 0.95), rgba(8, 11, 21, 0.97));
+    border: 1px solid var(--borda); border-radius: 14px;
+    padding: 22px 20px 20px 22px; margin-bottom: 24px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    display: flex; flex-direction: column; gap: 8px;
+    font-family: var(--f-corpo); color: var(--texto);
+}
+.cartao-musica::before {
+    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--verde), var(--ciano), transparent); opacity: 0.85;
+}
+.cartao-musica::after {
+    content: ""; position: absolute; left: 0; top: 18px; bottom: 18px; width: 2px;
+    background: linear-gradient(180deg, var(--verde), var(--ciano)); opacity: 0.55; border-radius: 2px;
+}
+.cartao-musica:hover {
+    transform: translateY(-3px); border-color: rgba(30, 215, 96, 0.55);
+    box-shadow: 0 0 22px rgba(30, 215, 96, 0.22), 0 16px 36px rgba(0, 0, 0, 0.7);
+}
+.cartao-topo { display: flex; align-items: center; justify-content: space-between; }
+.rank {
+    font-family: var(--f-titulo); font-weight: 900; font-size: 1.6rem; line-height: 1;
+    color: transparent; -webkit-text-stroke: 1px rgba(34, 211, 238, 0.6);
+}
+.badge-genero {
+    display: inline-block; font-family: var(--f-mono); font-size: 0.68rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.5px; color: var(--ciano);
+    background: rgba(34, 211, 238, 0.08); border: 1px solid rgba(34, 211, 238, 0.35);
+    border-radius: 6px; padding: 4px 10px;
+}
+.titulo-musica { font-family: var(--f-corpo); font-size: 1.15em; font-weight: 700; color: #fff; line-height: 1.25; }
+.artista-musica { font-family: var(--f-corpo); font-size: 0.95em; color: var(--texto-suave); font-weight: 500; }
+.similaridade {
+    font-family: var(--f-mono); color: var(--verde); font-size: 0.74em; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px; margin-top: 4px;
+}
 
-    div[data-testid="stTextInput"] > div:nth-child(2) {
-        background: linear-gradient(145deg, #1a1a24, #121218) !important;
-        border: 2px solid #3a3a4e !important;
-        padding: 4px 16px !important;
-        box-shadow: inset 3px 3px 6px rgba(0,0,0,0.8) !important;
-        transition: all 0.3s ease !important;
-    }
+/* ---------- Barras segmentadas (estilo HUD) ---------- */
+.barra, .barra > span {
+    -webkit-mask-image: repeating-linear-gradient(90deg, #000 0 7px, transparent 7px 9px);
+            mask-image: repeating-linear-gradient(90deg, #000 0 7px, transparent 7px 9px);
+}
+.barra { height: 7px; background: #1a2135; overflow: hidden; border-radius: 2px; }
+.barra > span { display: block; height: 100%; background: linear-gradient(90deg, var(--verde), var(--ciano)); }
+.barra-sim { margin: 0 0 10px 0; }
 
-    div[data-testid="stTextInput"] > div:nth-child(2):focus-within {
-        border: 2px solid #1DB954 !important;
-        box-shadow: 0 0 15px rgba(29, 185, 84, 0.5), inset 3px 3px 6px rgba(0,0,0,0.8) !important;
-    }
+.titulo-secao {
+    font-family: var(--f-titulo); color: #fff; font-size: 1.05rem; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase; margin: 8px 0 2px 0;
+}
+.titulo-secao::before { content: ""; display: inline-block; width: 4px; height: 1em; margin-right: 10px;
+    vertical-align: -2px; background: linear-gradient(180deg, var(--verde), var(--ciano)); border-radius: 2px; }
+.legenda-secao { font-family: var(--f-corpo); color: var(--texto-suave); font-size: 0.92em; margin-bottom: 16px; }
 
-    .stTextInput input {
-        color: #ffffff !important;
-        -webkit-text-fill-color: #ffffff !important;
-        padding-left: 5px !important;
-    }
-
-    div[data-testid="stSelectbox"] {
-        border-radius: 50px !important;
-    }
-
-    div[data-testid="stSelectbox"] > div {
-        background: linear-gradient(145deg, #1a1a24, #121218) !important;
-        border: 2px solid #3a3a4e !important;
-        border-radius: 50px !important;
-        padding: 4px 16px !important;
-        box-shadow: inset 3px 3px 6px rgba(0,0,0,0.8) !important;
-        transition: all 0.3s ease !important;
-    }
-
-    div[data-testid="stSelectbox"] > div:focus-within {
-        border: 2px solid #1DB954 !important;
-        box-shadow: 0 0 15px rgba(29, 185, 84, 0.5), inset 3px 3px 6px rgba(0,0,0,0.8) !important;
-    }
-
-    div[data-testid="stSelectbox"] * {
-        border-color: transparent !important;
-        box-shadow: none !important;
-        outline: none !important;
-        background-color: transparent !important;
-    }
-
-    div[data-testid="stSelectbox"] span {
-        color: #ffffff !important;
-        -webkit-text-fill-color: #ffffff !important;
-    }
-    
-    iframe {
-        border: none !important;
-        outline: none !important;
-        box-shadow: none !important;
-        background-color: transparent !important;
-    }
-
-    .stTextInput, .stSelectbox {
-        margin-bottom: 1.5rem;
-    }
-    
-    .cartao-musica {
-        background: linear-gradient(145deg, #181820, #0f0f15);
-        border: 1px solid #333344;
-        border-top: 1px solid #a8a8b3;
-        border-radius: 16px; 
-        padding: 24px 20px;
-        margin-bottom: 24px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
-        transition: transform 0.2s ease-in-out;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-    
-    .cartao-musica:hover {
-        transform: translateY(-5px);
-        border-top: 1px solid #e0e0e5;
-        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8);
-    }
-    
-    .badge-genero {
-        display: inline-block;
-        background: linear-gradient(145deg, #2a2a35, #1f1f28);
-        color: #d0d0e0;
-        padding: 4px 14px;
-        border-radius: 30px; 
-        font-size: 0.75em;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        border: 1px solid #4a4a5e;
-        margin-bottom: 4px;
-        box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
-    }
-    
-    .titulo-musica {
-        font-size: 1.2em;
-        font-weight: 800;
-        color: #ffffff;
-        font-family: 'Helvetica Neue', sans-serif;
-        line-height: 1.2;
-    }
-    
-    .artista-musica {
-        font-size: 0.95em;
-        color: #a0a0b0;
-        font-weight: 500;
-        margin-bottom: 2px;
-    }
-    
-    .titulo-secao {
-        font-family: 'Montserrat', sans-serif;
-        color: #ffffff;
-        font-size: 1.25rem;
-        font-weight: 800;
-        margin: 8px 0 2px 0;
-    }
-
-    .legenda-secao {
-        color: #8a8a9d;
-        font-size: 0.9em;
-        margin-bottom: 16px;
-    }
-
-    .similaridade {
-        color: #1DB954;
-        font-size: 0.85em;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-bottom: 12px;
-    }
-
-    /* ---------- Layout geral ---------- */
-    #MainMenu, footer, header[data-testid="stHeader"] { visibility: hidden; height: 0; }
-    .block-container { max-width: 1100px; padding-top: 2.2rem; padding-bottom: 2rem; }
-
-    /* ---------- Hero ---------- */
-    .hero { text-align: center; margin: 0 0 1.6rem 0; }
-    .hero-eyebrow {
-        display: inline-block; font-size: 0.75rem; font-weight: 800; letter-spacing: 2px;
-        text-transform: uppercase; color: #1DB954; border: 1px solid rgba(29,185,84,0.4);
-        background: rgba(29,185,84,0.08); border-radius: 30px; padding: 5px 14px; margin-bottom: 14px;
-    }
-    .hero h1 { margin: 0; }
-    .hero p { color: #a0a0b0; font-size: 1.05rem; max-width: 620px; margin: 6px auto 0 auto; }
-
-    /* ---------- Botões de exemplo (pílulas) ---------- */
-    div[data-testid="stButton"] > button {
-        width: 100%; border-radius: 50px; border: 1px solid #3a3a4e;
-        background: linear-gradient(145deg, #1a1a24, #121218); color: #d0d0e0;
-        font-size: 0.85rem; padding: 6px 10px; transition: all 0.2s ease;
-    }
-    div[data-testid="stButton"] > button:hover {
-        border-color: #1DB954; color: #ffffff; box-shadow: 0 0 12px rgba(29,185,84,0.35);
-        transform: translateY(-2px);
-    }
-    div[data-testid="stButton"] > button:focus:not(:active) { border-color: #1DB954; color: #fff; }
-    .rotulo-exemplos { color: #8a8a9d; font-size: 0.85rem; margin: 4px 0 8px 4px; }
-
-    /* ---------- Como funciona ---------- */
-    .passo {
-        background: linear-gradient(145deg, #181820, #0f0f15); border: 1px solid #2a2a38;
-        border-radius: 16px; padding: 20px; height: 100%;
-    }
-    .passo-num {
-        display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
-        border-radius: 50%; background: rgba(29,185,84,0.15); color: #1DB954; font-weight: 800; margin-bottom: 10px;
-    }
-    .passo-titulo { color: #fff; font-weight: 800; margin-bottom: 4px; }
-    .passo-texto { color: #a0a0b0; font-size: 0.92rem; line-height: 1.45; }
-
-    /* ---------- Painel da referência ---------- */
-    .medidor { margin-bottom: 10px; }
-    .medidor-topo { display: flex; justify-content: space-between; font-size: 0.8rem; color: #a0a0b0; margin-bottom: 4px; }
-    .medidor-topo b { color: #fff; font-weight: 700; }
-    .barra { height: 6px; border-radius: 6px; background: #22222e; overflow: hidden; }
-    .barra > span { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, #1DB954, #6ee7a0); }
-    .chip-bpm {
-        display: inline-block; font-size: 0.78rem; font-weight: 700; color: #d0d0e0; background: #1f1f28;
-        border: 1px solid #4a4a5e; border-radius: 30px; padding: 3px 12px; margin: 2px 6px 10px 0;
-    }
-
-    /* ---------- Cartões: ranking e barra de similaridade ---------- */
-    .cartao-topo { display: flex; align-items: center; justify-content: space-between; }
-    .rank { color: #5a5a6e; font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.4rem; }
-    .barra-sim { margin: 2px 0 10px 0; }
-    .barra-sim .barra { height: 5px; }
-
-    /* ---------- Abas ---------- */
-    button[data-baseweb="tab"] { color: #a0a0b0; font-weight: 700; }
-    button[data-baseweb="tab"][aria-selected="true"] { color: #ffffff; }
-    div[data-baseweb="tab-highlight"] { background-color: #1DB954 !important; }
-    div[data-baseweb="tab-border"] { background-color: #2a2a38 !important; }
-    div[data-baseweb="tab-list"] { gap: 6px; }
-</style>
+/* ---------- Skeleton enquanto o player do Spotify carrega ---------- */
+.player {
+    min-height: 80px; border-radius: 12px; border: 1px solid var(--borda);
+    background: linear-gradient(100deg, #0d1224 30%, #161d36 50%, #0d1224 70%) 0 0 / 220% 100%;
+    animation: shimmer 1.4s linear infinite;
+}
+@keyframes shimmer { to { background-position: -220% 0; } }
 """
-st.markdown(css_customizado, unsafe_allow_html=True)
+
+CSS_PAGINA = f"""
+@import url('{FONTES_URL}');
+
+html, body, .stApp, p, label, input, button, li, h1, h2, h3,
+[data-baseweb="tab"], [data-baseweb="select"] div, [data-testid="stMarkdownContainer"] {{
+    font-family: var(--f-corpo) !important;
+}}
+
+.stApp {{
+    color: var(--texto);
+    background:
+        radial-gradient(900px 520px at 12% -8%, rgba(34, 211, 238, 0.13), transparent 60%),
+        radial-gradient(900px 520px at 92% 0%, rgba(30, 215, 96, 0.12), transparent 60%),
+        radial-gradient(700px 500px at 50% 110%, rgba(139, 92, 246, 0.10), transparent 60%),
+        linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px) 0 0 / 46px 46px,
+        linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px) 0 0 / 46px 46px,
+        var(--fundo);
+    background-attachment: fixed;
+}}
+
+#MainMenu, footer, header[data-testid="stHeader"] {{ visibility: hidden; height: 0; }}
+.block-container {{ max-width: 1100px; padding-top: 2.2rem; padding-bottom: 2rem; }}
+iframe {{ border: none !important; outline: none !important; background-color: transparent !important; }}
+
+/* ---------- Hero ---------- */
+.hero {{ text-align: center; margin: 0 0 1.8rem 0; }}
+.eq {{ display: flex; gap: 4px; justify-content: center; align-items: flex-end; height: 38px; margin-bottom: 14px; }}
+.eq span {{ width: 4px; height: 100%; border-radius: 2px; background: linear-gradient(180deg, var(--ciano), var(--verde));
+    transform-origin: bottom; animation: eq 1.2s ease-in-out infinite; box-shadow: 0 0 8px rgba(30,215,96,0.5); }}
+.eq span:nth-child(1) {{ animation-delay: -0.9s; }} .eq span:nth-child(2) {{ animation-delay: -0.5s; }}
+.eq span:nth-child(3) {{ animation-delay: -0.2s; }} .eq span:nth-child(4) {{ animation-delay: -0.7s; }}
+.eq span:nth-child(5) {{ animation-delay: -0.35s; }} .eq span:nth-child(6) {{ animation-delay: -1s; }}
+.eq span:nth-child(7) {{ animation-delay: -0.1s; }}
+@keyframes eq {{ 0%, 100% {{ transform: scaleY(0.2); }} 50% {{ transform: scaleY(1); }} }}
+.hero-eyebrow {{
+    display: inline-flex; align-items: center; gap: 8px; font-family: var(--f-mono); font-size: 0.72rem; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase; color: var(--verde);
+    border: 1px solid rgba(30, 215, 96, 0.4); background: rgba(30, 215, 96, 0.07);
+    border-radius: 6px; padding: 5px 12px; margin-bottom: 16px;
+}}
+.hero-eyebrow::before {{ content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--verde);
+    box-shadow: 0 0 8px var(--verde); animation: pisca 1.6s ease-in-out infinite; }}
+@keyframes pisca {{ 50% {{ opacity: 0.25; }} }}
+.hero h1 {{
+    font-family: var(--f-titulo) !important; font-weight: 900 !important; font-size: 3.2rem !important;
+    letter-spacing: 4px; margin: 0; padding: 0 0 0.3rem 0; text-transform: uppercase;
+    background: linear-gradient(90deg, #ffffff 10%, var(--ciano) 55%, var(--verde) 95%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 18px rgba(34, 211, 238, 0.35));
+}}
+.hero p {{ color: var(--texto-suave); font-size: 1.05rem; max-width: 640px; margin: 8px auto 0 auto; line-height: 1.5; }}
+@media (max-width: 640px) {{ .hero h1 {{ font-size: 2rem !important; letter-spacing: 2px; }} }}
+
+/* ---------- Campos ---------- */
+div[data-testid="stTextInput"] div {{ border-radius: 12px !important; background-color: transparent !important;
+    border: none !important; box-shadow: none !important; }}
+div[data-testid="stTextInput"] > div:nth-child(2) {{
+    background: rgba(10, 14, 26, 0.9) !important; border: 1px solid var(--borda) !important;
+    padding: 4px 16px !important; transition: all 0.25s ease !important; }}
+div[data-testid="stTextInput"] > div:nth-child(2):focus-within {{
+    border: 1px solid var(--verde) !important;
+    box-shadow: 0 0 0 3px rgba(30, 215, 96, 0.15), 0 0 22px rgba(30, 215, 96, 0.35) !important; }}
+.stTextInput input {{ color: #fff !important; -webkit-text-fill-color: #fff !important; padding-left: 5px !important;
+    font-family: var(--f-mono) !important; font-size: 0.95rem !important; }}
+.stTextInput input::placeholder {{ color: #5d6a88 !important; -webkit-text-fill-color: #5d6a88 !important; }}
+
+div[data-testid="stSelectbox"] > div {{ background: rgba(10, 14, 26, 0.9) !important; border: 1px solid var(--borda) !important;
+    border-radius: 12px !important; padding: 4px 16px !important; transition: all 0.25s ease !important; }}
+div[data-testid="stSelectbox"] > div:focus-within {{ border: 1px solid var(--verde) !important;
+    box-shadow: 0 0 22px rgba(30, 215, 96, 0.3) !important; }}
+div[data-testid="stSelectbox"] * {{ border-color: transparent !important; box-shadow: none !important;
+    outline: none !important; background-color: transparent !important; }}
+div[data-testid="stSelectbox"] span {{ color: #fff !important; -webkit-text-fill-color: #fff !important; }}
+div[data-testid="stSelectbox"] label p, .stTextInput label p {{ font-family: var(--f-mono) !important; font-size: 0.78rem;
+    letter-spacing: 1px; text-transform: uppercase; color: var(--texto-suave); }}
+.stTextInput, .stSelectbox {{ margin-bottom: 1.2rem; }}
+
+/* ---------- Botões de exemplo ---------- */
+div[data-testid="stButton"] > button {{
+    width: 100%; border-radius: 10px; border: 1px solid var(--borda); background: rgba(10, 14, 26, 0.85);
+    color: #c9d2ea; font-family: var(--f-mono) !important; font-size: 0.8rem; padding: 8px 10px; transition: all 0.2s ease;
+}}
+div[data-testid="stButton"] > button:hover {{
+    border-color: var(--ciano); color: #fff; box-shadow: 0 0 16px rgba(34, 211, 238, 0.35); transform: translateY(-2px);
+}}
+div[data-testid="stButton"] > button:focus:not(:active) {{ border-color: var(--ciano); color: #fff; }}
+.rotulo-exemplos {{ font-family: var(--f-mono); color: var(--texto-suave); font-size: 0.78rem; letter-spacing: 1px;
+    text-transform: uppercase; margin: 4px 0 10px 2px; }}
+
+/* ---------- Como funciona ---------- */
+.passo {{ position: relative; background: linear-gradient(160deg, rgba(24, 30, 52, 0.9), rgba(8, 11, 21, 0.95));
+    border: 1px solid var(--borda); border-radius: 14px; padding: 20px; height: 100%; overflow: hidden; }}
+.passo::before {{ content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--ciano), transparent); opacity: 0.8; }}
+.passo-num {{ font-family: var(--f-titulo); font-weight: 900; font-size: 1.7rem; color: transparent;
+    -webkit-text-stroke: 1px rgba(30, 215, 96, 0.7); margin-bottom: 8px; }}
+.passo-titulo {{ color: #fff; font-weight: 700; margin-bottom: 4px; font-size: 1.05rem; }}
+.passo-texto {{ color: var(--texto-suave); font-size: 0.92rem; line-height: 1.5; }}
+
+/* ---------- Painel da referência ---------- */
+.medidor {{ margin-bottom: 11px; }}
+.medidor-topo {{ display: flex; justify-content: space-between; font-family: var(--f-mono); font-size: 0.72rem;
+    letter-spacing: 1px; text-transform: uppercase; color: var(--texto-suave); margin-bottom: 5px; }}
+.medidor-topo b {{ color: var(--verde); font-weight: 700; }}
+.chip-bpm {{ display: inline-block; font-family: var(--f-mono); font-size: 0.74rem; font-weight: 700; letter-spacing: 1px;
+    color: var(--ciano); background: rgba(34, 211, 238, 0.08); border: 1px solid rgba(34, 211, 238, 0.35);
+    border-radius: 6px; padding: 4px 12px; margin: 2px 6px 12px 0; }}
+
+/* ---------- Abas ---------- */
+button[data-baseweb="tab"] {{ color: var(--texto-suave); font-family: var(--f-mono) !important; font-weight: 700;
+    font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase; }}
+button[data-baseweb="tab"][aria-selected="true"] {{ color: #fff; text-shadow: 0 0 12px rgba(30, 215, 96, 0.6); }}
+div[data-baseweb="tab-highlight"] {{ background-color: var(--verde) !important; box-shadow: 0 0 10px var(--verde); }}
+div[data-baseweb="tab-border"] {{ background-color: rgba(130, 150, 210, 0.15) !important; }}
+div[data-baseweb="tab-list"] {{ gap: 8px; }}
+
+/* ---------- Rodapé ---------- */
+.rodape {{ text-align: center; color: #5d6a88; font-family: var(--f-mono); font-size: 0.72rem; letter-spacing: 0.5px;
+    line-height: 1.7; padding: 4px 0 20px 0; }}
+.rodape b {{ color: var(--texto-suave); }}
+"""
+
+st.markdown(f"<style>{CSS_BASE}{CSS_PAGINA}</style>", unsafe_allow_html=True)
 
 
 @st.cache_data
@@ -307,12 +280,11 @@ SCRIPT_PLAYERS = """
 
 CSS_PLAYERS = """
 <style>
-    body { margin: 0; padding: 6px 2px 0 2px; background: transparent; }
+    body { margin: 0; padding: 6px 2px 0 2px; background: transparent; font-family: var(--f-corpo); }
     .grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; }
     @media (max-width: 640px) { .grade { grid-template-columns: minmax(0, 1fr); } }
     .cartao-musica { min-width: 0; }
     .titulo-musica, .artista-musica { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .player { min-height: 80px; }
 </style>
 """
 
@@ -325,7 +297,14 @@ def html_player(track_id, altura):
 
 def renderizar_html(conteudo, altura):
     """Mostra HTML com JavaScript. Usa st.iframe (Streamlit recente) ou components.html (antigo)."""
-    pagina = f"<!doctype html><html><head><meta charset='utf-8'>{css_customizado}{CSS_PLAYERS}</head><body>{conteudo}{SCRIPT_PLAYERS}</body></html>"
+    pagina = (
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        "<link rel='preconnect' href='https://fonts.googleapis.com'>"
+        "<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>"
+        "<link rel='preconnect' href='https://open.spotify.com'>"
+        f"<link rel='stylesheet' href='{FONTES_URL}'>"
+        f"<style>{CSS_BASE}</style>{CSS_PLAYERS}</head><body>{conteudo}{SCRIPT_PLAYERS}</body></html>"
+    )
     if hasattr(st, "iframe"):
         st.iframe(pagina, height=altura)
     else:
@@ -366,20 +345,25 @@ def grafico_radar(pos_ref, nome_ref, posicoes_rec):
     fig = go.Figure()
     fig.add_trace(go.Scatterpolar(
         r=perfil_ref + perfil_ref[:1], theta=rotulos, fill="toself",
-        name=f"Referência: {nome_ref}", line_color="#1DB954"))
+        name=f"Referência: {nome_ref}", line=dict(color="#1ed760", width=2), fillcolor="rgba(30,215,96,0.18)"))
     fig.add_trace(go.Scatterpolar(
         r=perfil_rec + perfil_rec[:1], theta=rotulos, fill="toself",
-        name="Média das recomendações", line_color="#a8a8b3"))
+        name="Média das recomendações", line=dict(color="#22d3ee", width=2), fillcolor="rgba(34,211,238,0.15)"))
+    grade = "rgba(130,150,210,0.18)"
     fig.update_layout(
-        polar=dict(bgcolor="rgba(0,0,0,0)", radialaxis=dict(visible=True, range=[0, 1])),
-        paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#e0e0e0"),
+        polar=dict(bgcolor="rgba(0,0,0,0)",
+                   radialaxis=dict(visible=True, range=[0, 1], gridcolor=grade, linecolor=grade,
+                                   tickfont=dict(size=9, color="#5d6a88")),
+                   angularaxis=dict(gridcolor=grade, linecolor=grade)),
+        paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#c9d2ea", family="Space Grotesk, sans-serif"),
         legend=dict(orientation="h", y=-0.1), margin=dict(t=30, b=30))
     return fig
 
 
 # ---------------------------- Interface ----------------------------
 st.markdown(
-    '<div class="hero"><span class="hero-eyebrow">Descoberta musical por áudio</span>'
+    '<div class="hero"><div class="eq">' + '<span></span>' * 7 + '</div>'
+    '<span class="hero-eyebrow">Descoberta musical por áudio</span>'
     '<h1>RecomendaSom</h1>'
     '<p>Escolha uma música e encontre faixas com a mesma batida, energia e clima, '
     'dentro do mesmo estilo ou em gêneros que você ainda não explorou.</p></div>',
@@ -397,9 +381,9 @@ if not busca:
             st.button(nome, key=f"ex_{i}", on_click=usar_exemplo, args=(nome,))
 
     st.markdown("<br>", unsafe_allow_html=True)
-    passos = [("1", "Escolha a base", "Busque uma música que você gosta. Se houver várias versões, é só selecionar a certa."),
-              ("2", "Comparamos o som", "Analisamos dançabilidade, energia, clima, ritmo e mais 6 características de áudio."),
-              ("3", "Ouça e descubra", "Receba 10 sugestões: 5 do mesmo gênero e 5 de outros estilos, com player do Spotify.")]
+    passos = [("01", "Escolha a base", "Busque uma música que você gosta. Se houver várias versões, é só selecionar a certa."),
+              ("02", "Comparamos o som", "Analisamos dançabilidade, energia, clima, ritmo e mais 6 características de áudio."),
+              ("03", "Ouça e descubra", "Receba 10 sugestões: 5 do mesmo gênero e 5 de outros estilos, com player do Spotify.")]
     for col, (num, titulo, texto) in zip(st.columns(3), passos):
         col.markdown(f'<div class="passo"><div class="passo-num">{num}</div>'
                      f'<div class="passo-titulo">{titulo}</div><div class="passo-texto">{texto}</div></div>',
@@ -460,10 +444,7 @@ else:
                     grafico_radar(pos_ref, musica_ref['track_name'], recomendacoes["pos"].tolist()),
                     use_container_width=True)
 
-st.markdown("---")
-rodape_html = """
-<div style="text-align: center; color: #8a8a9d; font-family: 'Montserrat', sans-serif; font-size: 0.85em; padding-bottom: 20px;">
-    <p>Desenvolvido por <b>Deborah Silvério Alves Morales</b> • Dados e players fornecidos por <b>Spotify</b>. O conteúdo musical pertence aos respectivos artistas e gravadoras.</p>
-</div>
-"""
-st.markdown(rodape_html, unsafe_allow_html=True)
+st.markdown(
+    '<div class="rodape">Desenvolvido por <b>Deborah Silvério Alves Morales</b><br>'
+    'Dados e players fornecidos por <b>Spotify</b>. O conteúdo musical pertence aos respectivos artistas e gravadoras.</div>',
+    unsafe_allow_html=True)
