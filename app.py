@@ -266,11 +266,71 @@ def usar_exemplo(nome):
     st.session_state["busca"] = nome
 
 
-def html_iframe(track_id, altura):
-    return (f'<iframe style="border-radius:12px; background-color: transparent;" '
-            f'src="https://open.spotify.com/embed/track/{track_id}?utm_source=generator&theme=0" '
-            f'width="100%" height="{altura}" frameBorder="0" loading="lazy" '
-            f'allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>')
+SCRIPT_PLAYERS = """
+<script>
+(function () {
+  // Registro compartilhado entre todos os blocos de players da página (mesma origem do app).
+  var reg;
+  try { reg = window.parent.__rsPlayers = window.parent.__rsPlayers || {lista: [], atual: null}; }
+  catch (e) { reg = window.__rsPlayers = window.__rsPlayers || {lista: [], atual: null}; }
+
+  window.onSpotifyIframeApiReady = function (API) {
+    document.querySelectorAll('.player').forEach(function (el) {
+      API.createController(el,
+        {uri: 'spotify:track:' + el.dataset.id, width: '100%', height: parseInt(el.dataset.h, 10)},
+        function (ctrl) {
+          reg.lista.push(ctrl);
+          ctrl.addListener('playback_update', function (e) {
+            if (!e.data || e.data.isPaused) return;
+            if (reg.atual && reg.atual !== ctrl) { try { reg.atual.pause(); } catch (err) {} }
+            reg.atual = ctrl;
+          });
+        });
+    });
+  };
+
+  // Plano B: se a API do Spotify não carregar, mostra os players comuns.
+  setTimeout(function () {
+    document.querySelectorAll('.player').forEach(function (el) {
+      var f = document.createElement('iframe');
+      f.src = 'https://open.spotify.com/embed/track/' + el.dataset.id + '?utm_source=generator&theme=0';
+      f.width = '100%'; f.height = el.dataset.h; f.frameBorder = 0; f.loading = 'lazy';
+      f.allow = 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';
+      f.style.borderRadius = '12px';
+      el.replaceWith(f);
+    });
+  }, 8000);
+})();
+</script>
+<script src="https://open.spotify.com/embed/iframe-api/v1" async></script>
+"""
+
+CSS_PLAYERS = """
+<style>
+    body { margin: 0; padding: 6px 2px 0 2px; background: transparent; }
+    .grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; }
+    @media (max-width: 640px) { .grade { grid-template-columns: minmax(0, 1fr); } }
+    .cartao-musica { min-width: 0; }
+    .titulo-musica, .artista-musica { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .player { min-height: 80px; }
+</style>
+"""
+
+ALTURA_CARTAO = 318  # altura de um cartão + espaçamento (px)
+
+
+def html_player(track_id, altura):
+    return f'<div class="player" data-id="{track_id}" data-h="{altura}"></div>'
+
+
+def renderizar_html(conteudo, altura):
+    """Mostra HTML com JavaScript. Usa st.iframe (Streamlit recente) ou components.html (antigo)."""
+    pagina = f"<!doctype html><html><head><meta charset='utf-8'>{css_customizado}{CSS_PLAYERS}</head><body>{conteudo}{SCRIPT_PLAYERS}</body></html>"
+    if hasattr(st, "iframe"):
+        st.iframe(pagina, height=altura)
+    else:
+        import streamlit.components.v1 as components
+        components.html(pagina, height=altura)
 
 
 def html_medidor(rotulo, valor):
@@ -283,21 +343,21 @@ def mostrar_cartoes(recomendacoes, inicio=1):
     if recomendacoes.empty:
         st.info("Não encontramos faixas suficientes neste grupo.")
         return
-    cols = st.columns(2)
+    cartoes = []
     for n, (_, r) in enumerate(recomendacoes.iterrows()):
         genero = html.escape(str(r["track_genre"]).title())
-        html_cartao = (
+        cartoes.append(
             '<div class="cartao-musica">'
             f'<div class="cartao-topo"><span class="badge-genero">{genero}</span><span class="rank">{n + inicio:02d}</span></div>'
             f'<div class="titulo-musica">{html.escape(str(r["track_name"]))}</div>'
             f'<div class="artista-musica">{html.escape(str(r["artists"]))}</div>'
             f'<div class="similaridade">Similaridade acústica: {r["similaridade"]:.1f}%</div>'
             f'<div class="barra-sim"><div class="barra"><span style="width:{r["similaridade"]:.0f}%"></span></div></div>'
-            f'{html_iframe(r["track_id"], 80)}'
+            f'{html_player(r["track_id"], 80)}'
             '</div>'
         )
-        with cols[n % 2]:
-            st.markdown(html_cartao, unsafe_allow_html=True)
+    linhas = (len(cartoes) + 1) // 2
+    renderizar_html(f'<div class="grade">{"".join(cartoes)}</div>', linhas * ALTURA_CARTAO + 12)
 
 
 def grafico_radar(pos_ref, nome_ref, posicoes_rec):
@@ -369,7 +429,7 @@ else:
                         unsafe_allow_html=True)
             col_player, col_perfil = st.columns([3, 2])
             with col_player:
-                st.markdown(html_iframe(musica_ref['track_id'], 152), unsafe_allow_html=True)
+                renderizar_html(html_player(musica_ref['track_id'], 152), 160)
             with col_perfil:
                 medidores = "".join(html_medidor(nome, musica_ref[c]) for c, nome in MEDIDORES)
                 st.markdown(f'<span class="chip-bpm">{musica_ref["tempo"]:.0f} BPM</span>' + medidores,
