@@ -5,7 +5,7 @@ import streamlit as st
 
 import recomendador as rec
 
-st.set_page_config(page_title="RecomendaSom", page_icon="🎵", layout="wide")
+st.set_page_config(page_title="RecomendaSom", page_icon="favicon.png", layout="wide")
 
 css_customizado = """
 <style>
@@ -327,7 +327,7 @@ st.markdown(
 
 busca = st.text_input(
     "Música de referência", key="busca", label_visibility="collapsed",
-    placeholder="🔎  Digite o nome da música ou do artista...")
+    placeholder="Digite o nome da música ou do artista...")
 
 if not busca:
     st.markdown('<div class="rotulo-exemplos">Sem ideia? Experimente uma destas:</div>', unsafe_allow_html=True)
@@ -363,7 +363,7 @@ else:
             genero_ref = str(musica_ref['track_genre']).title()
 
             # ---- painel da referência: player + perfil sonoro
-            st.markdown(f'<div class="titulo-secao">🎶 Referência</div>'
+            st.markdown(f'<div class="titulo-secao">Referência</div>'
                         f'<div class="legenda-secao">{html.escape(str(musica_ref["track_name"]))} · '
                         f'{html.escape(str(musica_ref["artists"]))} · Gênero: {html.escape(genero_ref)}</div>',
                         unsafe_allow_html=True)
@@ -372,7 +372,7 @@ else:
                 st.markdown(html_iframe(musica_ref['track_id'], 152), unsafe_allow_html=True)
             with col_perfil:
                 medidores = "".join(html_medidor(nome, musica_ref[c]) for c, nome in MEDIDORES)
-                st.markdown(f'<span class="chip-bpm">♩ {musica_ref["tempo"]:.0f} BPM</span>' + medidores,
+                st.markdown(f'<span class="chip-bpm">{musica_ref["tempo"]:.0f} BPM</span>' + medidores,
                             unsafe_allow_html=True)
 
             recomendacoes = rec.recomendar_hibrido(pos_ref, df, knn_model, X_norm)
@@ -381,7 +381,7 @@ else:
 
             st.markdown("<br>", unsafe_allow_html=True)
             aba_mesmo, aba_outros, aba_perfil = st.tabs(
-                [f"🔥 Mesmo gênero ({len(mesmo)})", f"🧭 Outros gêneros ({len(outros)})", "📊 Perfil acústico"])
+                [f"Mesmo gênero ({len(mesmo)})", f"Outros gêneros ({len(outros)})", "Perfil acústico"])
 
             with aba_mesmo:
                 st.markdown(f'<div class="legenda-secao">As faixas mais parecidas dentro de {html.escape(genero_ref)}.</div>',
